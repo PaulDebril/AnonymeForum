@@ -8,7 +8,7 @@ on:
 
 jobs:
   api:
-    name: API - Lint, Test, Format
+    name: API service
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -17,14 +17,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 18
           cache: npm
           cache-dependency-path: api/package-lock.json
-
 
       - name: Install dependencies
         run: npm ci
@@ -37,3 +36,51 @@ jobs:
 
       - name: Check Prettier formatting
         run: npm run format -- --check
+
+  thread:
+    name: Thread service
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: thread
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: thread/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+  sender:
+    name: Sender service
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sender
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: sender/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
