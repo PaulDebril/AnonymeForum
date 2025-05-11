@@ -1,12 +1,25 @@
 version: "3.8"
 
 services:
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    networks:
+      - forum-net
+    environment:
+      - PORT=3000
+
   thread:
     build: ./thread
     ports:
       - "80:80"
     networks:
       - forum-net
+    depends_on:
+      - api
 
   sender:
     build: ./sender
@@ -14,6 +27,8 @@ services:
       - "8080:80"
     networks:
       - forum-net
+    depends_on:
+      - api
 
 networks:
   forum-net:
