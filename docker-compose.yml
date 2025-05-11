@@ -1,35 +1,66 @@
-version: "3.8"
+version: '3.8'
 
 services:
+  db:
+    image: postgres:15
+    container_name: forum-db
+    environment:
+      POSTGRES_USER: forum_user
+      POSTGRES_PASSWORD: forum_pass
+      POSTGRES_DB: forum_db
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - internal
+    restart: unless-stopped
+
   api:
     build:
       context: ./api
-      dockerfile: Dockerfile
+    container_name: forum-api
+    depends_on:
+      - db
     ports:
       - "3000:3000"
-    networks:
-      - forum-net
     environment:
-      - PORT=3000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: forum_user
+      DB_PASSWORD: forum_pass
+      DB_NAME: forum_db
+    networks:
+      - internal
+    restart: unless-stopped
 
   thread:
-    build: ./thread
+    build:
+      context: ./thread
+    container_name: forum-thread
+    depends_on:
+      - api
     ports:
       - "80:80"
     networks:
-      - forum-net
-    depends_on:
-      - api
+      - internal
+    restart: unless-stopped
 
   sender:
-    build: ./sender
+    build:
+      context: ./sender
+    container_name: forum-sender
+    depends_on:
+      - api
     ports:
       - "8080:80"
     networks:
-      - forum-net
-    depends_on:
-      - api
+      - internal
+    restart: unless-stopped
+
+volumes:
+  db_data:
 
 networks:
-  forum-net:
+  internal:
     driver: bridge
