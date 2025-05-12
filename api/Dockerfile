@@ -11,3 +11,4 @@ COPY . .
 EXPOSE 3000
 
 CMD ["node", "src/server.js"]
+LABEL org.opencontainers.image.source="https://github.com/PaulDebril/AnonymeForum"

@@ -8,7 +8,7 @@ on:
 
 jobs:
   api:
-    name: API service
+    name: API - service
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -37,8 +37,27 @@ jobs:
       - name: Check Prettier formatting
         run: npm run format -- --check
 
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Build Docker image
+        run: |
+          SHORT_HASH=$(git rev-parse --short HEAD)
+          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          docker build -t ghcr.io/$REPO_OWNER/api:$SHORT_HASH .
+
+      - name: Push Docker image
+        run: |
+          SHORT_HASH=$(git rev-parse --short HEAD)
+          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          docker push ghcr.io/$REPO_OWNER/api:$SHORT_HASH
+
   thread:
-    name: Thread service
+    name: Thread - service
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -61,8 +80,27 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Build Docker image
+        run: |
+          SHORT_HASH=$(git rev-parse --short HEAD)
+          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          docker build -t ghcr.io/$REPO_OWNER/thread:$SHORT_HASH .
+
+      - name: Push Docker image
+        run: |
+          SHORT_HASH=$(git rev-parse --short HEAD)
+          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          docker push ghcr.io/$REPO_OWNER/thread:$SHORT_HASH
+
   sender:
-    name: Sender service
+    name: Sender - service
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -84,3 +122,22 @@ jobs:
 
       - name: Run ESLint
         run: npm run lint
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Build Docker image
+        run: |
+          SHORT_HASH=$(git rev-parse --short HEAD)
+          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          docker build -t ghcr.io/$REPO_OWNER/sender:$SHORT_HASH .
+
+      - name: Push Docker image
+        run: |
+          SHORT_HASH=$(git rev-parse --short HEAD)
+          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          docker push ghcr.io/$REPO_OWNER/sender:$SHORT_HASH
