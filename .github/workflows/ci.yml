@@ -7,12 +7,17 @@ on:
     branches: [main]
 
 jobs:
-  api:
-    name: API - service
+  services:
+    name: ${{ matrix.service }} - service
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        service: [api, thread, sender]
+
     defaults:
       run:
-        working-directory: api
+        working-directory: ${{ matrix.service }}
 
     steps:
       - name: Checkout repository
@@ -23,7 +28,7 @@ jobs:
         with:
           node-version: 18
           cache: npm
-          cache-dependency-path: api/package-lock.json
+          cache-dependency-path: ${{ matrix.service }}/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -31,11 +36,21 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
-      - name: Run tests
-        run: npm test
+      - name: Run tests (si présents)
+        run: |
+          if [ -f package.json ] && grep -q '"test"' package.json; then
+            npm test
+          else
+            echo "Aucun test défini"
+          fi
 
-      - name: Check Prettier formatting
-        run: npm run format -- --check
+      - name: Check Prettier formatting (si applicable)
+        run: |
+          if npm run | grep -q 'format'; then
+            npm run format -- --check
+          else
+            echo "Aucune commande format trouvée"
+          fi
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -48,96 +63,10 @@ jobs:
         run: |
           SHORT_HASH=$(git rev-parse --short HEAD)
           REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          docker build -t ghcr.io/$REPO_OWNER/api:$SHORT_HASH .
+          docker build -t ghcr.io/$REPO_OWNER/${{ matrix.service }}:$SHORT_HASH .
 
       - name: Push Docker image
         run: |
           SHORT_HASH=$(git rev-parse --short HEAD)
           REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          docker push ghcr.io/$REPO_OWNER/api:$SHORT_HASH
-
-  thread:
-    name: Thread - service
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: thread
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-          cache: npm
-          cache-dependency-path: thread/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run ESLint
-        run: npm run lint
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
-
-      - name: Build Docker image
-        run: |
-          SHORT_HASH=$(git rev-parse --short HEAD)
-          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          docker build -t ghcr.io/$REPO_OWNER/thread:$SHORT_HASH .
-
-      - name: Push Docker image
-        run: |
-          SHORT_HASH=$(git rev-parse --short HEAD)
-          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          docker push ghcr.io/$REPO_OWNER/thread:$SHORT_HASH
-
-  sender:
-    name: Sender - service
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: sender
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-          cache: npm
-          cache-dependency-path: sender/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run ESLint
-        run: npm run lint
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
-
-      - name: Build Docker image
-        run: |
-          SHORT_HASH=$(git rev-parse --short HEAD)
-          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          docker build -t ghcr.io/$REPO_OWNER/sender:$SHORT_HASH .
-
-      - name: Push Docker image
-        run: |
-          SHORT_HASH=$(git rev-parse --short HEAD)
-          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          docker push ghcr.io/$REPO_OWNER/sender:$SHORT_HASH
+          docker push ghcr.io/$REPO_OWNER/${{ matrix.service }}:$SHORT_HASH
