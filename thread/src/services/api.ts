@@ -35,8 +35,26 @@ export async function checkHealth(): Promise<HealthResponse> {
   return data;
 }
 
+// GET /messages
+export async function fetchMessages(): Promise<Message[]> {
+  const { data } = await axios.get<Message[]>(`${API_BASE}/messages`);
+  return data;
+}
+
+// GET /messages/:id
+export async function fetchMessageById(id: number): Promise<Message> {
+  const { data } = await axios.get<Message>(`${API_BASE}/messages/${id}`);
+  return data;
+}
+
 // POST /messages
 export async function createMessage(message: NewMessage): Promise<Message> {
   const { data } = await axios.post<Message>(`${API_BASE}/messages`, message);
+  return data;
+}
+
+// DELETE /messages/:id
+export async function deleteMessage(id: number): Promise<{ status: string; message: string }> {
+  const { data } = await axios.delete(`${API_BASE}/messages/${id}`);
   return data;
 }

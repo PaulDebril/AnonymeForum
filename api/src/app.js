@@ -166,4 +166,55 @@ app.delete('/messages/:id', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /messages/{id}:
+ *   get:
+ *     summary: Récupère un message par ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: ID du message
+ *     responses:
+ *       200:
+ *         description: Message trouvé
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *                 pseudo:
+ *                   type: string
+ *                 contenu:
+ *                   type: string
+ *                 date:
+ *                   type: string
+ *                   format: date-time
+ *       404:
+ *         description: Message non trouvé
+ *       500:
+ *         description: Erreur serveur
+ */
+app.get('/messages/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await db.query(
+      'SELECT id, pseudo, contenu, date FROM message WHERE id = $1',
+      [id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Message non trouvé' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Erreur récupération message :', err);
+    res.status(500).json({ error: 'Erreur lors de la récupération du message' });
+  }
+});
+
 module.exports = app;
