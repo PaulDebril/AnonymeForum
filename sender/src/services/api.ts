@@ -1,7 +1,6 @@
 import axios from 'axios';
 
-// @ts-ignore - Config injectée au runtime
-const API_BASE = window.ENV_CONFIG?.VITE_API_URL || import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_BASE = (window.ENV_CONFIG?.VITE_API_URL || import.meta.env.VITE_API_URL || 'http://localhost:3000') as string;
 
 export interface HelloResponse {
   message: string;
