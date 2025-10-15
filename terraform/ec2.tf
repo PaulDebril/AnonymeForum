@@ -41,8 +41,6 @@ resource "aws_instance" "sender" {
               docker run -d \
                 --name forum-sender-${var.environment} \
                 -p 8080:80 \
-                -e VITE_API_URL=http://${aws_instance.api.public_ip}:3000 \
-                -e VITE_THREAD_URL=http://${aws_instance.thread.public_ip} \
                 --restart unless-stopped \
                 ghcr.io/pauldebril/sender:${var.docker_tag}
               EOF
@@ -76,11 +74,6 @@ resource "aws_instance" "api" {
               docker run -d \
                 --name forum-api-${var.environment} \
                 -p 3000:3000 \
-                -e DB_HOST=${aws_instance.db.private_ip} \
-                -e DB_PORT=5432 \
-                -e DB_USER=forum_user \
-                -e DB_PASSWORD=forum_pass \
-                -e DB_NAME=forum_db \
                 --restart unless-stopped \
                 ghcr.io/pauldebril/api:${var.docker_tag}
               EOF
@@ -114,8 +107,6 @@ resource "aws_instance" "thread" {
               docker run -d \
                 --name forum-thread-${var.environment} \
                 -p 80:80 \
-                -e VITE_API_URL=http://${aws_instance.api.public_ip}:3000 \
-                -e VITE_SENDER_URL=http://${aws_instance.sender.public_ip}:8080 \
                 --restart unless-stopped \
                 ghcr.io/pauldebril/thread:${var.docker_tag}
               EOF

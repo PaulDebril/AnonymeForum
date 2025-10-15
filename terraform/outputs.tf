@@ -53,8 +53,13 @@ output "db_instance_id" {
 }
 
 output "db_instance_public_ip" {
-    description = "Public IP of the DB EC2 instance"
-    value       = aws_instance.db.public_ip
+  description = "Public IP of the DB EC2 instance"
+  value       = aws_instance.db.public_ip
+}
+
+output "db_instance_private_ip" {
+  description = "Private IP of the DB EC2 instance"
+  value       = aws_instance.db.private_ip
 }
 
 output "db_ssh_command" {

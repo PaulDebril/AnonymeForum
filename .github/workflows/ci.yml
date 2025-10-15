@@ -100,6 +100,7 @@ jobs:
       sender-ip: ${{ steps.terraform-outputs.outputs.sender-ip }}
       thread-ip: ${{ steps.terraform-outputs.outputs.thread-ip }}
       db-ip: ${{ steps.terraform-outputs.outputs.db-ip }}
+      db-private-ip: ${{ steps.terraform-outputs.outputs.db-private-ip }}
 
     steps:
       - name: Checkout repository
@@ -143,6 +144,7 @@ jobs:
           echo "sender-ip=$(terraform output -raw sender_instance_public_ip)" >> $GITHUB_OUTPUT
           echo "thread-ip=$(terraform output -raw thread_instance_public_ip)" >> $GITHUB_OUTPUT
           echo "db-ip=$(terraform output -raw db_instance_public_ip)" >> $GITHUB_OUTPUT
+          echo "db-private-ip=$(terraform output -raw db_instance_private_ip)" >> $GITHUB_OUTPUT
 
   update-services:
     name: Update Services with Dynamic IPs
@@ -173,7 +175,7 @@ jobs:
             docker run -d \
               --name forum-api-$BRANCH_NAME \
               -p 3000:3000 \
-              -e DB_HOST=${{ needs.deploy.outputs.db-ip }} \
+              -e DB_HOST=${{ needs.deploy.outputs.db-private-ip }} \
               -e DB_PORT=5432 \
               -e DB_USER=forum_user \
               -e DB_PASSWORD=forum_pass \
