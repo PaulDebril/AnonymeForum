@@ -1,10 +1,14 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [main, test]
   pull_request:
-    branches: [main]
+    branches: [main, test]
+
+env:
+  REGISTRY: ghcr.io
+  OWNER: ${{ github.repository_owner }}
 
 jobs:
   services:
@@ -19,9 +23,19 @@ jobs:
       run:
         working-directory: ${{ matrix.service }}
 
+    outputs:
+      image-tag: ${{ steps.set-tag.outputs.tag }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: set-tag
+        run: |
+          SHORT_HASH=$(git rev-parse --short HEAD)
+          echo "tag=$SHORT_HASH" >> $GITHUB_OUTPUT
+          echo "Tag will be: $SHORT_HASH"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -55,18 +69,170 @@ jobs:
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_PAT }}
 
       - name: Build Docker image
         run: |
-          SHORT_HASH=$(git rev-parse --short HEAD)
-          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          docker build -t ghcr.io/$REPO_OWNER/${{ matrix.service }}:$SHORT_HASH .
+          SHORT_HASH=${{ steps.set-tag.outputs.tag }}
+          REPO_OWNER=$(echo "${{ env.OWNER }}" | tr '[:upper:]' '[:lower:]')
+          docker build -t ${{ env.REGISTRY }}/$REPO_OWNER/${{ matrix.service }}:$SHORT_HASH .
 
       - name: Push Docker image
         run: |
-          SHORT_HASH=$(git rev-parse --short HEAD)
-          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          docker push ghcr.io/$REPO_OWNER/${{ matrix.service }}:$SHORT_HASH
+          SHORT_HASH=${{ steps.set-tag.outputs.tag }}
+          REPO_OWNER=$(echo "${{ env.OWNER }}" | tr '[:upper:]' '[:lower:]')
+          docker push ${{ env.REGISTRY }}/$REPO_OWNER/${{ matrix.service }}:$SHORT_HASH
+
+  deploy:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    needs: services
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/test') && github.event_name == 'push'
+    
+    defaults:
+      run:
+        working-directory: terraform
+
+    outputs:
+      api-ip: ${{ steps.terraform-outputs.outputs.api-ip }}
+      sender-ip: ${{ steps.terraform-outputs.outputs.sender-ip }}
+      thread-ip: ${{ steps.terraform-outputs.outputs.thread-ip }}
+      db-ip: ${{ steps.terraform-outputs.outputs.db-ip }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: latest
+          terraform_wrapper: false
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-central-1
+
+      - name: Update Terraform variables
+        run: |
+          BRANCH_NAME=$(echo "${GITHUB_REF#refs/heads/}")
+          cat > terraform.tfvars << EOF
+          github_token = "${{ secrets.GHCR_PAT }}"
+          docker_tag = "${{ needs.services.outputs.image-tag }}"
+          environment = "$BRANCH_NAME"
+          EOF
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        run: terraform plan -var-file="terraform.tfvars"
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -var-file="terraform.tfvars"
+
+      - name: Get Terraform Outputs
+        id: terraform-outputs
+        run: |
+          echo "api-ip=$(terraform output -raw api_instance_public_ip)" >> $GITHUB_OUTPUT
+          echo "sender-ip=$(terraform output -raw sender_instance_public_ip)" >> $GITHUB_OUTPUT
+          echo "thread-ip=$(terraform output -raw thread_instance_public_ip)" >> $GITHUB_OUTPUT
+          echo "db-ip=$(terraform output -raw db_instance_public_ip)" >> $GITHUB_OUTPUT
+
+  update-services:
+    name: Update Services with Dynamic IPs
+    runs-on: ubuntu-latest
+    needs: [services, deploy]
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/test') && github.event_name == 'push'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ needs.deploy.outputs.api-ip }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ needs.deploy.outputs.sender-ip }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ needs.deploy.outputs.thread-ip }} >> ~/.ssh/known_hosts
+
+      - name: Update API Service
+        run: |
+          BRANCH_NAME=$(echo "${GITHUB_REF#refs/heads/}")
+          ssh -i ~/.ssh/id_rsa ec2-user@${{ needs.deploy.outputs.api-ip }} "
+            docker stop forum-api-$BRANCH_NAME || true
+            docker rm forum-api-$BRANCH_NAME || true
+            docker pull ghcr.io/$(echo '${{ env.OWNER }}' | tr '[:upper:]' '[:lower:]')/api:${{ needs.services.outputs.image-tag }}
+            docker run -d \
+              --name forum-api-$BRANCH_NAME \
+              -p 3000:3000 \
+              -e DB_HOST=${{ needs.deploy.outputs.db-ip }} \
+              -e DB_PORT=5432 \
+              -e DB_USER=forum_user \
+              -e DB_PASSWORD=forum_pass \
+              -e DB_NAME=forum_db \
+              --restart unless-stopped \
+              ghcr.io/$(echo '${{ env.OWNER }}' | tr '[:upper:]' '[:lower:]')/api:${{ needs.services.outputs.image-tag }}
+          "
+
+      - name: Update Sender Service
+        run: |
+          BRANCH_NAME=$(echo "${GITHUB_REF#refs/heads/}")
+          ssh -i ~/.ssh/id_rsa ec2-user@${{ needs.deploy.outputs.sender-ip }} "
+            docker stop forum-sender-$BRANCH_NAME || true
+            docker rm forum-sender-$BRANCH_NAME || true
+            docker pull ghcr.io/$(echo '${{ env.OWNER }}' | tr '[:upper:]' '[:lower:]')/sender:${{ needs.services.outputs.image-tag }}
+            docker run -d \
+              --name forum-sender-$BRANCH_NAME \
+              -p 8080:80 \
+              -e VITE_API_URL=http://${{ needs.deploy.outputs.api-ip }}:3000 \
+              -e VITE_THREAD_URL=http://${{ needs.deploy.outputs.thread-ip }} \
+              --restart unless-stopped \
+              ghcr.io/$(echo '${{ env.OWNER }}' | tr '[:upper:]' '[:lower:]')/sender:${{ needs.services.outputs.image-tag }}
+          "
+
+      - name: Update Thread Service
+        run: |
+          BRANCH_NAME=$(echo "${GITHUB_REF#refs/heads/}")
+          ssh -i ~/.ssh/id_rsa ec2-user@${{ needs.deploy.outputs.thread-ip }} "
+            docker stop forum-thread-$BRANCH_NAME || true
+            docker rm forum-thread-$BRANCH_NAME || true
+            docker pull ghcr.io/$(echo '${{ env.OWNER }}' | tr '[:upper:]' '[:lower:]')/thread:${{ needs.services.outputs.image-tag }}
+            docker run -d \
+              --name forum-thread-$BRANCH_NAME \
+              -p 80:80 \
+              -e VITE_API_URL=http://${{ needs.deploy.outputs.api-ip }}:3000 \
+              -e VITE_SENDER_URL=http://${{ needs.deploy.outputs.sender-ip }}:8080 \
+              --restart unless-stopped \
+              ghcr.io/$(echo '${{ env.OWNER }}' | tr '[:upper:]' '[:lower:]')/thread:${{ needs.services.outputs.image-tag }}
+          "
+
+      - name: Health Check
+        run: |
+          echo "Waiting for services to start..."
+          sleep 30
+          
+          echo "Checking API health..."
+          curl -f http://${{ needs.deploy.outputs.api-ip }}:3000/health || echo "API not ready yet"
+          
+          echo "Checking Sender availability..."
+          curl -f http://${{ needs.deploy.outputs.sender-ip }}:8080 || echo "Sender not ready yet"
+          
+          echo "Checking Thread availability..."
+          curl -f http://${{ needs.deploy.outputs.thread-ip }} || echo "Thread not ready yet"
+
+      - name: Display URLs
+        run: |
+          BRANCH_NAME=$(echo "${GITHUB_REF#refs/heads/}")
+          echo "🚀 Deployment completed for branch: $BRANCH_NAME!"
+          echo "📱 Sender App: http://${{ needs.deploy.outputs.sender-ip }}:8080"
+          echo "💬 Thread App: http://${{ needs.deploy.outputs.thread-ip }}"
+          echo "🔧 API: http://${{ needs.deploy.outputs.api-ip }}:3000"
+          echo "📖 API Docs: http://${{ needs.deploy.outputs.api-ip }}:3000/api-docs"

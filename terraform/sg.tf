@@ -1,6 +1,6 @@
 # Create a security group for all EC2 instances
 resource "aws_security_group" "web" {
-  name        = "paul-debril-forum-sg"
+  name        = "paul-debril-forum-sg-${var.environment}"
   description = "Allow web, SSH, and application traffic"
 
   # HTTP traffic (port 80)
@@ -76,6 +76,6 @@ resource "aws_security_group" "web" {
   }
 
   tags = {
-    Name = "anonyme-forum-sg"
+    Name = "anonyme-forum-sg-${var.environment}"
   }
 }

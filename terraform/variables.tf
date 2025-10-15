@@ -24,3 +24,15 @@ variable "github_token" {
   type        = string
   sensitive   = true
 }
+
+variable "docker_tag" {
+  description = "Docker image tag to deploy"
+  type        = string
+  default     = "latest"
+}
+
+variable "environment" {
+  description = "Environment name (main, test, etc.)"
+  type        = string
+  default     = "main"
+}

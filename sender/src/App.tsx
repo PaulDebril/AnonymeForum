@@ -45,7 +45,7 @@ const Home: React.FC = () => (
       </p>
       <div className="space-x-4">
         <Link
-          to="http://localhost/"
+          to={import.meta.env.VITE_THREAD_URL || "http://localhost/"}
           className="inline-block px-6 py-3 bg-blue-600 text-white font-medium rounded-lg shadow hover:bg-blue-700 transition"
         >
           Voir tous les messages

@@ -31,7 +31,7 @@ const MessageList: React.FC = () => {
 
   return (
     <div className="relative min-h-screen bg-gray-50 py-12 px-4">
-      <Link to="http://localhost:8080/" className="absolute top-4 left-4 text-gray-600 hover:text-gray-800">
+      <Link to={import.meta.env.VITE_SENDER_URL || "http://localhost:8080/"} className="absolute top-4 left-4 text-gray-600 hover:text-gray-800">
         <Home size={32} />
       </Link>
 
