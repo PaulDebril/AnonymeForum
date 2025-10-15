@@ -66,3 +66,10 @@ output "db_ssh_command" {
     description = "SSH command to connect to the DB instance"
     value       = "ssh -i paul-debril-forum-key.pem ec2-user@${aws_instance.db.public_ip}"
 }
+
+# Private key output
+output "private_key_pem" {
+  description = "Private key for SSH access"
+  value       = tls_private_key.key.private_key_pem
+  sensitive   = true
+}
