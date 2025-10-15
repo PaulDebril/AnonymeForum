@@ -62,7 +62,7 @@ resource "aws_security_group" "web" {
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/8"]  # Only allow internal network access
+    cidr_blocks = ["172.31.0.0/16"]  # AWS VPC default CIDR for internal access
     description = "Allow PostgreSQL traffic"
   }
 

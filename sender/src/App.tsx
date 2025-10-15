@@ -44,12 +44,12 @@ const Home: React.FC = () => (
         Un forum simple, rapide et entièrement anonyme.
       </p>
       <div className="space-x-4">
-        <Link
-          to={import.meta.env.VITE_THREAD_URL || "http://localhost/"}
+        <a
+          href={(window as any).ENV_CONFIG?.VITE_THREAD_URL || "http://localhost"}
           className="inline-block px-6 py-3 bg-blue-600 text-white font-medium rounded-lg shadow hover:bg-blue-700 transition"
         >
           Voir tous les messages
-        </Link>
+        </a>
         <Link
           to="/message"
           className="inline-block px-6 py-3 bg-green-600 text-white font-medium rounded-lg shadow hover:bg-green-700 transition"
