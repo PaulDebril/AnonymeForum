@@ -193,10 +193,10 @@ resource "null_resource" "update_sender_config" {
       "echo '${var.github_token}' | docker login ghcr.io -u PaulDebril --password-stdin",
       "docker stop forum-sender-${var.environment} || true",
       "docker rm forum-sender-${var.environment} || true",
-      "docker run -d --name forum-sender-${var.environment} -p 8080:80 --restart unless-stopped ghcr.io/pauldebril/sender:${var.docker_tag}",
-      "sleep 5",
-      "docker exec forum-sender-${var.environment} sh -c \"echo 'window.ENV_CONFIG = { VITE_API_URL: \\\"http://${aws_instance.api.public_ip}:3000\\\", VITE_THREAD_URL: \\\"http://${aws_instance.thread.public_ip}\\\" };' > /usr/share/nginx/html/config.js\"",
-      "docker exec forum-sender-${var.environment} cat /usr/share/nginx/html/config.js"
+      # Create config.js with dynamic IPs on the host
+      "cat > /home/ec2-user/config.js << 'EOF'\nwindow.ENV_CONFIG = { VITE_API_URL: \"http://${aws_instance.api.public_ip}:3000\", VITE_THREAD_URL: \"http://${aws_instance.thread.public_ip}\" };\nEOF",
+      # Run container with config.js mounted as volume
+      "docker run -d --name forum-sender-${var.environment} -p 8080:80 -v /home/ec2-user/config.js:/usr/share/nginx/html/config.js:ro --restart unless-stopped ghcr.io/pauldebril/sender:${var.docker_tag}"
     ]
 
     connection {
@@ -216,10 +216,10 @@ resource "null_resource" "update_thread_config" {
       "echo '${var.github_token}' | docker login ghcr.io -u PaulDebril --password-stdin",
       "docker stop forum-thread-${var.environment} || true",
       "docker rm forum-thread-${var.environment} || true",
-      "docker run -d --name forum-thread-${var.environment} -p 80:80 --restart unless-stopped ghcr.io/pauldebril/thread:${var.docker_tag}",
-      "sleep 5",
-      "docker exec forum-thread-${var.environment} sh -c \"echo 'window.ENV_CONFIG = { VITE_API_URL: \\\"http://${aws_instance.api.public_ip}:3000\\\", VITE_SENDER_URL: \\\"http://${aws_instance.sender.public_ip}:8080\\\" };' > /usr/share/nginx/html/config.js\"",
-      "docker exec forum-thread-${var.environment} cat /usr/share/nginx/html/config.js"
+      # Create config.js with dynamic IPs on the host
+      "cat > /home/ec2-user/config.js << 'EOF'\nwindow.ENV_CONFIG = { VITE_API_URL: \"http://${aws_instance.api.public_ip}:3000\", VITE_SENDER_URL: \"http://${aws_instance.sender.public_ip}:8080\" };\nEOF",
+      # Run container with config.js mounted as volume
+      "docker run -d --name forum-thread-${var.environment} -p 80:80 -v /home/ec2-user/config.js:/usr/share/nginx/html/config.js:ro --restart unless-stopped ghcr.io/pauldebril/thread:${var.docker_tag}"
     ]
 
     connection {
