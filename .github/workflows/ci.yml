@@ -112,30 +112,29 @@ jobs:
           terraform_version: latest
           terraform_wrapper: false
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: eu-central-1
+      - name: Setup Terraform Cloud CLI
+        run: |
+          echo "credentials \"app.terraform.io\" {" > ~/.terraformrc
+          echo "  token = \"${{ secrets.TF_API_TOKEN }}\"" >> ~/.terraformrc
+          echo "}" >> ~/.terraformrc
 
-      - name: Update Terraform variables
+      - name: Update Terraform variables in Terraform Cloud
         run: |
           BRANCH_NAME=$(echo "${GITHUB_REF#refs/heads/}")
-          cat > terraform.tfvars << EOF
-          github_token = "${{ secrets.GHCR_PAT }}"
-          docker_tag = "${{ needs.services.outputs.image-tag }}"
-          environment = "$BRANCH_NAME"
-          EOF
+          # Ces variables seront définies dans Terraform Cloud UI ou via API
+          echo "Variables à définir dans Terraform Cloud:"
+          echo "github_token = ${{ secrets.GHCR_PAT }}"
+          echo "docker_tag = ${{ needs.services.outputs.image-tag }}"
+          echo "environment = $BRANCH_NAME"
 
       - name: Terraform Init
         run: terraform init
 
       - name: Terraform Plan
-        run: terraform plan -var-file="terraform.tfvars"
+        run: terraform plan -var="github_token=${{ secrets.GHCR_PAT }}" -var="docker_tag=${{ needs.services.outputs.image-tag }}" -var="environment=$(echo ${GITHUB_REF#refs/heads/})"
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve -var-file="terraform.tfvars"
+        run: terraform apply -auto-approve -var="github_token=${{ secrets.GHCR_PAT }}" -var="docker_tag=${{ needs.services.outputs.image-tag }}" -var="environment=$(echo ${GITHUB_REF#refs/heads/})"
 
       - name: Get Terraform Outputs
         id: terraform-outputs

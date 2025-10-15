@@ -1,9 +1,10 @@
 terraform {
-  cloud {
-    organization = "pauldebril" 
-    workspaces {
-      name = "anonyme-forum"
-    }
+  backend "s3" {
+    bucket         = "your-terraform-state-bucket"  # Créez ce bucket
+    key            = "anonyme-forum/terraform.tfstate"
+    region         = "eu-central-1"
+    dynamodb_table = "terraform-state-locks"        # Pour le verrouillage
+    encrypt        = true
   }
   
   required_providers {
