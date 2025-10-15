@@ -30,7 +30,7 @@ const MessageList: React.FC = () => {
 
   return (
     <div className="relative min-h-screen bg-gray-50 py-12 px-4">
-      <a href={(window as any).ENV_CONFIG?.VITE_SENDER_URL || "http://localhost:8080"} className="absolute top-4 left-4 text-gray-600 hover:text-gray-800">
+      <a href={(window as unknown as { ENV_CONFIG?: { VITE_SENDER_URL?: string } }).ENV_CONFIG?.VITE_SENDER_URL || "http://localhost:8080"} className="absolute top-4 left-4 text-gray-600 hover:text-gray-800">
         <Home size={32} />
       </a>
 
