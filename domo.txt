@@ -1,0 +1,2 @@
+docker-compose up --build 
+docker exec -it forum-db psql -U forum_user -d forum_db
